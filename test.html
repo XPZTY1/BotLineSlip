@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเช็คตำแหน่งและมาร์กจุดบนรูปภาพ</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h2 {
+            margin-top: 0;
+            color: #1a73e8;
+            border-bottom: 2px solid #e8f0fe;
+            padding-bottom: 10px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 90px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input[type="file"] {
+            padding: 6px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #1557b0;
+        }
+        .info-bar {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            background: #e8f0fe;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+        .canvas-wrapper {
+            max-width: 100%;
+            overflow: auto;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            background: #fafafa;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📍 เครื่องมือเช็คพิกัดและวาดจุดบนรูปภาพ</h2>
+    
+    <div class="controls">
+        <div class="input-group">
+            <label for="upload">เลือกรูปภาพ:</label>
+            <input type="file" id="upload" accept="image/*">
+        </div>
+        <div class="input-group">
+            <label for="inputX">พิกัด X:</label>
+            <input type="number" id="inputX" value="0" min="0">
+        </div>
+        <div class="input-group">
+            <label for="inputY">พิกัด Y:</label>
+            <input type="number" id="inputY" value="0" min="0">
+        </div>
+        <button id="drawBtn">🎯 วาดจุดมาร์ก</button>
+    </div>
+
+    <div class="info-bar" id="imgInfo">💡 เริ่มต้นโดยการอัปโหลดรูปภาพ (คุณสามารถคลิกบนรูปภาพเพื่อดึงพิกัดได้โดยตรง)</div>
+
+    <div class="canvas-wrapper">
+        <canvas id="canvas"></canvas>
+    </div>
+</div>
+
+<script>
+    const upload = document.getElementById('upload');
+    const inputX = document.getElementById('inputX');
+    const inputY = document.getElementById('inputY');
+    const drawBtn = document.getElementById('drawBtn');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const imgInfo = document.getElementById('imgInfo');
+
+    let loadedImage = null;
+
+    // 1. ระบบอัปโหลดรูปภาพ
+    upload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                loadedImage = img;
+                // ปรับขนาด Canvas ให้เท่ากับขนาดจริงของรูปภาพพิกเซลต่อพิกเซล
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // วาดรูปต้นฉบับลงไปก่อน
+                ctx.drawImage(img, 0, 0);
+                
+                // อัปเดตข้อมูลขนาดรูปภาพและลิมิตของ Input
+                imgInfo.innerHTML = `🖼️ <b>ขนาดรูปภาพจริง:</b> ${img.width} x ${img.height} พิกเซล | อัปโหลดเรียบร้อยแล้ว`;
+                inputX.max = img.width;
+                inputY.max = img.height;
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // 2. ฟังก์ชันวาดวงกลมมาร์กจุดแบบชัดเจนพิเศษ (Double Ring)
+    function drawMarker() {
+        if (!loadedImage) {
+            alert('❌ กรุณาอัปโหลดรูปภาพก่อนใช้งานครับ');
+            return;
+        }
+
+        const x = parseInt(inputX.value) || 0;
+        const y = parseInt(inputY.value) || 0;
+
+        // วาดรูปใหม่ทุกครั้งเพื่อลบจุดเก่าออก
+        ctx.drawImage(loadedImage, 0, 0);
+
+        // --- เริ่มวาดจุดวงกลมพิกัด ---
+        const radius = 12; // ขนาดรัศมีที่กำลังดี ไม่เล็กไม่ใหญ่เกินไป
+
+        // ชั้นที่ 1: วงแหวนสีแดงหนาด้านนอก
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#ff0000';
+        ctx.stroke();
+
+        // ชั้นที่ 2: วงแหวนสีขาวด้านในเพื่อตัดขอบ (ทำให้เห็นชัดแม้บนพื้นหลังสีมืด/สีแดง)
+        ctx.beginPath();
+        ctx.arc(x, y, radius - 3, 0, 2 * Math.PI);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // ชั้นที่ 3: จุดไข่แดงตรงกลางพิกัดเป๊ะๆ
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ff0000';
+        ctx.fill();
+    }
+
+    // กดปุ่มเพื่อวาดจุดตามตัวเลขที่กรอก
+    drawBtn.addEventListener('click', drawMarker);
+
+    // 3. ฟีเจอร์เสริม: คลิกบนรูปภาพเพื่อดึงพิกัดและวาดจุดอัตโนมัติ
+    canvas.addEventListener('click', (e) => {
+        if (!loadedImage) return;
+
+        // คำนวณหาตำแหน่งเมาส์เทียบกับขนาดพิกเซลจริงของ Canvas
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const x = Math.round((e.clientX - rect.left) * scaleX);
+        const y = Math.round((e.clientY - rect.top) * scaleY);
+
+        // เอาค่าไปใส่ในช่องกรอกตัวเลข
+        inputX.value = x;
+        inputY.value = y;
+
+        // วาดจุดทันที
+        drawMarker();
+    });
+</script>
+
+</body>
+</html>

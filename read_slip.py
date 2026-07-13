@@ -15,7 +15,7 @@ from google.genai import types
 # หรือจะ export GEMINI_API_KEY=... ในเทอร์มินัลแล้วอ่านจาก os.environ ก็ได้ทีหลัง
 GEMINI_API_KEY = "AQ.Ab8RN6Jc0isz1q5lXq9_pP68G3R5-ATdxRZEe9KYjB9FIH0aSg"
 
-GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODEL = "gemini-3.1-flash-lite"
 
 SLIP_PROMPT = """
 คุณเป็นผู้ช่วยอ่านสลิปโอนเงินจากธนาคารไทย จากรูปภาพที่ให้มา
@@ -34,6 +34,14 @@ SLIP_PROMPT = """
 }
 ตอบเป็น JSON object เดียว ไม่ต้องมี markdown code block
 """
+
+
+
+# SLIP_PROMPT = """
+# วิเคราะห์ภาพในรูปให้หน่อย แล้วหาตำแหน่งการ์ดที่มันมีรูปภาพต่างจากการ์ดอื่น โดยบอกเป็นพิกัด x และ y โดย x จะมี 3 และ y มี 2 
+# โดยมันจะมีให้กด 2 รูป
+# บอกมาเป็นแบบนี้ เช่น (1,2),(2,1)
+# """
 
 
 def guess_mime_type(path: str) -> str:
