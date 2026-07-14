@@ -1,50 +1,87 @@
-require('dotenv').config();
+const express = require('express');
+const line = require('@line/bot-sdk');
+const { config } = require('./config');
+const { handleEvent } = require('./services/lineService');
+const { getAllTransactions } = require('./services/transactionService');
+const { renderTransactionsPage } = require('./web/transactionsPage');
 
-const config = {
-  // LINE
-  line: {
-    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-    channelSecret: process.env.LINE_CHANNEL_SECRET,
-  },
+function createApp() {
+  const app = express();
 
-  // Gemini AI
-  gemini: {
-    apiKey: process.env.GEMINI_API_KEY,
-    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-  },
+  // LINE SDK verifies the x-line-signature header against the raw request body.
+  // Keep this middleware directly on /webhook and do not add express.json() before it.
+  const lineMiddleware = line.middleware({
+    channelSecret: config.line.channelSecret,
+  });
 
-  // Supabase
-  supabase: {
-    url: process.env.SUPABASE_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY,
-    table: 'transactions',
-  },
+  app.get('/', (req, res) => {
+    res.json({
+      status: 'ok',
+      name: 'ManageMoney LINE Bot',
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+    });
+  });
 
-  // Server
-  port: process.env.PORT || 3000,
-  baseUrl: process.env.APP_BASE_URL || 'https://slip-bot-uown.onrender.com',
-};
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
 
-// ─── Validate required config ───────────────────────────
-function validateConfig() {
-  const required = [
-    ['LINE_CHANNEL_ACCESS_TOKEN', config.line.channelAccessToken],
-    ['LINE_CHANNEL_SECRET', config.line.channelSecret],
-    ['GEMINI_API_KEY', config.gemini.apiKey],
-    ['SUPABASE_URL', config.supabase.url],
-    ['SUPABASE_ANON_KEY', config.supabase.anonKey],
-  ];
+  app.get('/transactions/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const rows = await getAllTransactions(userId);
 
-  const missing = required
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
+      if (rows === null) {
+        return res.status(500).send('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      }
 
-  if (missing.length > 0) {
-    console.error('❌ Missing environment variables:');
-    missing.forEach((name) => console.error(`   - ${name}`));
-    console.error('\n📝 ดูตัวอย่างได้ที่ .env.example');
-    process.exit(1);
-  }
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderTransactionsPage(rows));
+    } catch (error) {
+      console.error('❌ Transactions page error:', error);
+      return res.status(500).send('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    }
+  });
+
+  app.post('/webhook', lineMiddleware, async (req, res) => {
+    try {
+      const events = req.body.events || [];
+
+      if (events.length === 0) {
+        return res.status(200).json({ status: 'no events' });
+      }
+
+      const results = await Promise.allSettled(events.map((event) => handleEvent(event)));
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error(`❌ Event ${index} failed:`, result.reason);
+        }
+      });
+
+      return res.status(200).json({ status: 'ok' });
+    } catch (error) {
+      console.error('❌ Webhook error:', error);
+      return res.status(500).json({ status: 'error', message: error.message });
+    }
+  });
+
+  app.use((err, req, res, next) => {
+    if (err instanceof line.SignatureValidationFailed) {
+      console.error('❌ LINE Signature Validation Failed');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    if (err instanceof line.JSONParseError) {
+      console.error('❌ JSON Parse Error');
+      return res.status(400).json({ error: 'Invalid JSON' });
+    }
+
+    console.error('❌ Unhandled error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  });
+
+  return app;
 }
 
-module.exports = { config, validateConfig };
+module.exports = { createApp };
