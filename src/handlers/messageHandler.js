@@ -1,5 +1,5 @@
 const { parseExpenseMessage } = require('../services/geminiService');
-const { appendTransaction, getTransactions } = require('../services/transactionService');
+const { appendTransaction, getAllTransactions, getTransactions } = require('../services/transactionService');
 const {
   GENERAL_RESPONSES,
   generateConfirmQuickReply,
@@ -7,6 +7,7 @@ const {
   generateMissingFieldReply,
   generateTransactionFlex,
   isAnalysisRequest,
+  isBalanceRequest,
   isGreeting,
   isHelpRequest,
   parseSummaryPeriod,
@@ -27,6 +28,10 @@ async function handleTextMessage(userId, userMessage) {
 
   if (isHelpRequest(userMessage)) {
     return GENERAL_RESPONSES.help;
+  }
+
+  if (isBalanceRequest(userMessage)) {
+    return buildBalanceReply(userId);
   }
 
   if (isAnalysisRequest(userMessage)) {
@@ -95,6 +100,18 @@ async function buildSummaryReply(userId, userMessage) {
     return generateFlexSummary(rows, label) || GENERAL_RESPONSES.noData;
   } catch (error) {
     console.error('❌ Analysis error:', error);
+    return GENERAL_RESPONSES.error;
+  }
+}
+
+async function buildBalanceReply(userId) {
+  try {
+    const rows = await getAllTransactions(userId);
+    if (rows === null) return GENERAL_RESPONSES.error;
+
+    return generateFlexSummary(rows, 'ทั้งหมด') || GENERAL_RESPONSES.noData;
+  } catch (error) {
+    console.error('❌ Balance error:', error);
     return GENERAL_RESPONSES.error;
   }
 }
