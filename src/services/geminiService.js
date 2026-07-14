@@ -3,12 +3,12 @@
  * วิเคราะห์ข้อความภาษาไทย → structured JSON
  */
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { config } = require('../../config');
-const { buildSystemPrompt, buildUserPrompt } = require('../../constants/prompts');
-const { getToday, getYesterday, isValidDate, parseDateFromText } = require('../../utils/dateParser');
-const { ALL_CATEGORIES, categorizeByKeyword, classifyByKeyword } = require('../../constants/categories');
-const { boostConfidenceForObviousTransaction, isAmbiguousTransactionText } = require('../../utils/transactionRules');
-const { cleanTransactionItem, extractAmount, parseAmountValue } = require('../../utils/moneyParser');
+const { config } = require('../config');
+const { buildSystemPrompt, buildUserPrompt } = require('../constants/prompts');
+const { getToday, getYesterday, isValidDate, parseDateFromText } = require('../utils/dateParser');
+const { ALL_CATEGORIES, categorizeByKeyword, classifyByKeyword } = require('../constants/categories');
+const { boostConfidenceForObviousTransaction, isAmbiguousTransactionText } = require('../utils/transactionRules');
+const { cleanTransactionItem, extractAmount, parseAmountValue } = require('../utils/moneyParser');
 
 // ─── Initialize Gemini ─────────────────────────────────
 const genAI = new GoogleGenerativeAI(config.gemini.apiKey);
