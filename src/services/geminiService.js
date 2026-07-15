@@ -2,7 +2,7 @@
  * Gemini AI Service
  * วิเคราะห์ข้อความภาษาไทย → structured JSON
  */
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 const { config } = require('../config');
 const { buildSystemPrompt, buildUserPrompt, buildSlipPrompt } = require('../constants/prompts');
 const { getToday, getYesterday, isValidDate, parseDateFromText } = require('../utils/dateParser');
@@ -11,15 +11,12 @@ const { boostConfidenceForObviousTransaction, isAmbiguousTransactionText } = req
 const { cleanTransactionItem, extractAmount, parseAmountValue } = require('../utils/moneyParser');
 
 // ─── Initialize Gemini ─────────────────────────────────
-const genAI = new GoogleGenerativeAI(config.gemini.apiKey);
+const ai = new GoogleGenAI({ apiKey: config.gemini.apiKey });
 
-const model = genAI.getGenerativeModel({
-  model: config.gemini.model,
-  generationConfig: {
-    responseMimeType: 'application/json',
-    temperature: 0.15, // ยัง deterministic แต่ยืดหยุ่นขึ้นเล็กน้อยกับภาษาไทยธรรมชาติ
-  },
-});
+const GENERATION_CONFIG = {
+  responseMimeType: 'application/json',
+  temperature: 0.15, // ยัง deterministic แต่ยืดหยุ่นขึ้นเล็กน้อยกับภาษาไทยธรรมชาติ
+};
 
 /**
  * ส่งข้อความให้ Gemini AI วิเคราะห์
@@ -34,13 +31,15 @@ async function parseExpenseMessage(userMessage) {
     const systemPrompt = buildSystemPrompt(today, yesterday);
     const userPrompt = buildUserPrompt(userMessage);
 
-    const result = await model.generateContent({
+    const result = await ai.models.generateContent({
+      model: config.gemini.model,
       contents: [
         { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] },
       ],
+      config: GENERATION_CONFIG,
     });
 
-    const responseText = result.response.text();
+    const responseText = result.text;
     const parsed = JSON.parse(responseText);
 
     // ─── Validate & Sanitize ──────────────────────────
@@ -148,7 +147,8 @@ async function parseSlipImage(base64Image, mimeType = 'image/jpeg') {
   try {
     const slipPrompt = buildSlipPrompt();
 
-    const result = await model.generateContent({
+    const result = await ai.models.generateContent({
+      model: config.gemini.model,
       contents: [
         {
           role: 'user',
@@ -158,9 +158,10 @@ async function parseSlipImage(base64Image, mimeType = 'image/jpeg') {
           ],
         },
       ],
+      config: GENERATION_CONFIG,
     });
 
-    const responseText = result.response.text();
+    const responseText = result.text;
     const parsed = JSON.parse(responseText);
 
     return sanitizeSlipResult(parsed);
