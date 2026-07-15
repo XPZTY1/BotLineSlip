@@ -4,21 +4,32 @@
  */
 const line = require('@line/bot-sdk');
 const { config } = require('../config');
-const { handleTextMessage } = require('../handlers/messageHandler');
+const { handleImageMessage, handleTextMessage } = require('../handlers/messageHandler');
 const { GENERAL_RESPONSES } = require('../messages');
 
 const lineClient = new line.messagingApi.MessagingApiClient({
   channelAccessToken: config.line.channelAccessToken,
 });
 
+// Blob client แยกต่างหาก ใช้สำหรับดาวน์โหลดเนื้อหาไฟล์ (รูปภาพ) จาก LINE
+const blobClient = new line.messagingApi.MessagingApiBlobClient({
+  channelAccessToken: config.line.channelAccessToken,
+});
+
 async function handleEvent(event) {
   if (event.type !== 'message') return null;
+
+  const userId = event.source?.userId || null;
+
+  if (event.message.type === 'image') {
+    const payload = await handleImageMessage(userId, event.message.id, blobClient);
+    return replyPayload(event.replyToken, payload);
+  }
 
   if (event.message.type !== 'text') {
     return replyPayload(event.replyToken, GENERAL_RESPONSES.notText);
   }
 
-  const userId = event.source?.userId || null;
   const userMessage = event.message.text.trim();
   const payload = await handleTextMessage(userId, userMessage);
 

@@ -1,7 +1,7 @@
 const CONFIRM_TTL_MS = 5 * 60 * 1000;
 const pendingConfirmations = new Map();
 
-function getPending(userId) {
+function getPendingEntry(userId) {
   const entry = pendingConfirmations.get(userId);
   if (!entry) return null;
 
@@ -10,12 +10,18 @@ function getPending(userId) {
     return null;
   }
 
-  return entry.transactionData;
+  return { transactionData: entry.transactionData, mode: entry.mode || 'confirm' };
 }
 
-function setPending(userId, transactionData) {
+function getPending(userId) {
+  const entry = getPendingEntry(userId);
+  return entry ? entry.transactionData : null;
+}
+
+function setPending(userId, transactionData, mode = 'confirm') {
   pendingConfirmations.set(userId, {
     transactionData,
+    mode,
     expiresAt: Date.now() + CONFIRM_TTL_MS,
   });
 }
@@ -27,5 +33,6 @@ function clearPending(userId) {
 module.exports = {
   clearPending,
   getPending,
+  getPendingEntry,
   setPending,
 };

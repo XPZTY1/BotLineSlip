@@ -1,8 +1,10 @@
 const { config } = require('../config');
-const { parseExpenseMessage } = require('../services/geminiService');
+const { parseExpenseMessage, parseSlipImage } = require('../services/geminiService');
 const { appendTransaction, getAllTransactions, getTransactions } = require('../services/transactionService');
+const { categorizeByKeyword } = require('../constants/categories');
 const {
   GENERAL_RESPONSES,
+  formatAmount,
   generateConfirmQuickReply,
   generateFlexSummary,
   generateMissingFieldReply,
@@ -16,7 +18,7 @@ const {
   parseSummaryPeriod,
 } = require('../messages');
 const { shouldAutoSaveTransaction } = require('../utils/transactionRules');
-const { clearPending, getPending, setPending } = require('../state/pendingConfirmations');
+const { clearPending, getPendingEntry, setPending } = require('../state/pendingConfirmations');
 
 const CONFIRM_YES = ['ใช่', 'yes', 'ใช่ครับ', 'ใช่ค่ะ', 'ตกลง', 'ok', 'โอเค', 'ได้', 'บันทึก', 'ถูก', 'ถูกต้อง', '✅', '👍'];
 const CONFIRM_NO = ['ไม่', 'no', 'ไม่ใช่', 'ไม่ถูก', 'ผิด', 'ยกเลิก', 'cancel', '❌', '👎'];
@@ -74,12 +76,66 @@ async function handleTextMessage(userId, userMessage) {
   }
 }
 
+async function handleImageMessage(userId, messageId, blobClient) {
+  try {
+    const imageBuffer = await downloadImageContent(blobClient, messageId);
+    const base64Image = imageBuffer.toString('base64');
+    const slip = await parseSlipImage(base64Image, 'image/jpeg');
+
+    if (!slip || slip.amount === null || slip.amount === undefined) {
+      return 'อ่านสลิปไม่ออกครับ ลองส่งรูปที่ชัดกว่านี้ หรือพิมพ์รายการเองก็ได้ครับ เช่น "ค่าอาหาร 150"';
+    }
+
+    // มีหมายเหตุในสลิปอยู่แล้ว → บันทึกทันที
+    if (slip.note) {
+      const category = categorizeByKeyword(slip.note, slip.type);
+      const transactionData = {
+        item: slip.note,
+        amount: slip.amount,
+        category,
+        type: slip.type,
+        date: slip.date,
+      };
+      return saveAndBuildReply(transactionData, userId);
+    }
+
+    // ไม่มีหมายเหตุ → ถามผู้ใช้ว่าทำรายการนี้เพื่ออะไร แล้วรอคำตอบ
+    if (userId) {
+      setPending(userId, { amount: slip.amount, type: slip.type, date: slip.date }, 'awaiting_item');
+    }
+
+    return `อ่านสลิปได้แล้วครับ ยอด ${formatAmount(slip.amount)} ฿ แต่ในสลิปไม่มีหมายเหตุ\nรายการนี้ทำอะไรครับ (พิมพ์สั้น ๆ ได้เลย เช่น "ค่าอาหาร" หรือ "ค่าเช่าบ้าน")`;
+  } catch (error) {
+    console.error('❌ Slip image error:', error);
+    return GENERAL_RESPONSES.error;
+  }
+}
+
+async function downloadImageContent(blobClient, messageId) {
+  const stream = await blobClient.getMessageContent(messageId);
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 async function handlePendingConfirmation(userId, userMessage) {
   if (!userId) return null;
 
-  const pendingData = getPending(userId);
-  if (!pendingData) return null;
+  const pendingEntry = getPendingEntry(userId);
+  if (!pendingEntry) return null;
 
+  if (pendingEntry.mode === 'awaiting_item') {
+    clearPending(userId);
+    const item = userMessage.trim();
+    const { amount, type, date } = pendingEntry.transactionData;
+    const category = categorizeByKeyword(item, type);
+    const transactionData = { item, amount, category, type, date };
+    return saveAndBuildReply(transactionData, userId);
+  }
+
+  const pendingData = pendingEntry.transactionData;
   const normalizedMessage = userMessage.toLowerCase().trim();
 
   if (CONFIRM_YES.some((word) => normalizedMessage === word)) {
@@ -151,5 +207,6 @@ function toTransactionData(parsed) {
 }
 
 module.exports = {
+  handleImageMessage,
   handleTextMessage,
 };
