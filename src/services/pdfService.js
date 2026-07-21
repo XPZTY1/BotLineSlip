@@ -2,7 +2,7 @@
  * PDF Service
  * ใช้ html-pdf-node เพื่อแปลง HTML เป็น PDF แล้วอัปโหลดขึ้น Supabase Storage
  */
-const htmlPdf = require('html-pdf-node');
+const puppeteer = require('puppeteer');
 const { supabase } = require('./transactionService');
 
 /**
@@ -11,9 +11,27 @@ const { supabase } = require('./transactionService');
  * @returns {Promise<Buffer>} - ไฟล์ PDF ในรูปแบบ Buffer
  */
 async function generatePdfBuffer(htmlString) {
-  const options = { format: 'A4', printBackground: true };
-  const file = { content: htmlString };
-  return await htmlPdf.generatePdf(file, options);
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+  });
+  try {
+    const page = await browser.newPage();
+    // รอให้โหลด Font ภาษาไทยจาก Google Fonts สำเร็จก่อน (networkidle0)
+    await page.setContent(htmlString, { waitUntil: 'networkidle0' });
+    const buffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '20px',
+        bottom: '20px',
+        left: '20px',
+        right: '20px'
+      }
+    });
+    return buffer;
+  } finally {
+    await browser.close();
+  }
 }
 
 /**
