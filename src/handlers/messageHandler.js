@@ -2,6 +2,8 @@ const { config } = require('../config');
 const { parseExpenseMessage, parseSlipImage } = require('../services/geminiService');
 const { appendTransaction, getAllTransactions, getTransactions } = require('../services/transactionService');
 const { compareMonths } = require('../services/comparisonService');
+const { generatePdfBuffer, uploadPdfToSupabase } = require('../services/pdfService');
+const { renderPdfHtml } = require('../web/pdfTemplate');
 const { categorizeByKeyword } = require('../constants/categories');
 const {
   GENERAL_RESPONSES,
@@ -18,6 +20,8 @@ const {
   isComparisonRequest,
   isGreeting,
   isHelpRequest,
+  isPdfRequest,
+  parsePdfMonth,
   parseSummaryPeriod,
 } = require('../messages');
 const { shouldAutoSaveTransaction } = require('../utils/transactionRules');
@@ -48,6 +52,10 @@ async function handleTextMessage(userId, userMessage) {
 
   if (isComparisonRequest(userMessage)) {
     return buildComparisonReply(userId);
+  }
+
+  if (isPdfRequest(userMessage)) {
+    return buildPdfReply(userId, userMessage);
   }
 
   if (isAnalysisRequest(userMessage)) {
@@ -142,6 +150,15 @@ async function handlePendingConfirmation(userId, userMessage) {
     return saveAndBuildReply(transactionData, userId);
   }
 
+  if (pendingEntry.mode === 'awaiting_pdf_month') {
+    const month = parsePdfMonth(userMessage);
+    if (!month) {
+      return 'ยังไม่เข้าใจว่าเดือนไหนครับ ลองพิมพ์อีกที (เช่น "กรกฎา", "เดือน 7", "เดือนนี้")';
+    }
+    clearPending(userId);
+    return buildPdfReplyWithMonth(userId, month);
+  }
+
   const pendingData = pendingEntry.transactionData;
   const normalizedMessage = userMessage.toLowerCase().trim();
 
@@ -206,6 +223,52 @@ async function buildComparisonReply(userId) {
   } catch (error) {
     console.error('❌ Comparison error:', error);
     return GENERAL_RESPONSES.error;
+  }
+}
+
+async function buildPdfReply(userId, userMessage) {
+  const month = parsePdfMonth(userMessage);
+  if (!month) {
+    setPending(userId, {}, 'awaiting_pdf_month');
+    return '📄 สร้าง PDF สรุปรายการได้เลยครับ\nจะเอาเดือนไหน? พิมพ์ได้เลย เช่น\n• เดือนนี้\n• มิถุนา / กรกฎา\n• เดือน 6 / เดือน 7';
+  }
+  return buildPdfReplyWithMonth(userId, month);
+}
+
+async function buildPdfReplyWithMonth(userId, month) {
+  try {
+    const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const year = now.getUTCFullYear();
+    // ถ้า month มากกว่าเดือนปัจจุบัน แสดงว่าเป็นของปีที่แล้ว
+    const targetYear = month > now.getUTCMonth() + 1 ? year - 1 : year;
+    const lastDay = new Date(targetYear, month, 0).getDate();
+    
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateFrom = `${targetYear}-${pad(month)}-01`;
+    const dateTo = `${targetYear}-${pad(month)}-${pad(lastDay)}`;
+    
+    const monthNames = [
+      '', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    const label = `${monthNames[month]} ${targetYear + 543}`;
+    
+    console.log(`📄 [PDF] userId: ${userId}, month: ${month}, ${dateFrom} -> ${dateTo}`);
+    
+    const rows = await getTransactions(userId, dateFrom, dateTo);
+    if (rows === null) return GENERAL_RESPONSES.error;
+    if (rows.length === 0) return `ไม่มีรายการในเดือน${label} ให้สรุปครับ 📭`;
+
+    const htmlString = renderPdfHtml(rows, label, dateFrom, dateTo);
+    const pdfBuffer = await generatePdfBuffer(htmlString);
+    
+    const filename = `summary_${userId}_${targetYear}${pad(month)}_${Date.now()}.pdf`;
+    const publicUrl = await uploadPdfToSupabase(pdfBuffer, filename);
+    
+    return `📄 PDF พร้อมแล้วครับ!\nสรุปรายการ ${label}\nรายการทั้งหมด ${rows.length} รายการ\n\n⬇️ ดาวน์โหลด PDF\n${publicUrl}`;
+  } catch (error) {
+    console.error('❌ PDF export error:', error);
+    return 'ขออภัยครับ เกิดข้อผิดพลาดในการสร้าง PDF ลองใหม่อีกครั้งนะครับ 🙏';
   }
 }
 

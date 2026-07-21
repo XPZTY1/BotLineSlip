@@ -207,6 +207,41 @@ function isComparisonRequest(text) {
   return words.some((word) => text.toLowerCase().includes(word));
 }
 
+/**
+ * ตรวจสอบว่าผู้ใช้ต้องการออกรายงาน PDF หรือไม่
+ */
+function isPdfRequest(text) {
+  const words = ['สรุปรายการ pdf', 'pdf สรุป', 'ออก pdf', 'export pdf'];
+  return words.some((word) => text.toLowerCase().includes(word));
+}
+
+/**
+ * ดึงเดือนจากข้อความสำหรับ PDF
+ */
+function parsePdfMonth(text) {
+  const months = [
+    { name: 'มกรา', idx: 1 }, { name: 'กุมภา', idx: 2 }, { name: 'มีนา', idx: 3 },
+    { name: 'เมษา', idx: 4 }, { name: 'พฤษภา', idx: 5 }, { name: 'มิถุนา', idx: 6 },
+    { name: 'กรกฎา', idx: 7 }, { name: 'สิงหา', idx: 8 }, { name: 'กันยา', idx: 9 },
+    { name: 'ตุลา', idx: 10 }, { name: 'พฤศจิกา', idx: 11 }, { name: 'ธันวา', idx: 12 },
+  ];
+  
+  if (text.includes('เดือนนี้')) {
+    return new Date(Date.now() + 7 * 60 * 60 * 1000).getUTCMonth() + 1;
+  }
+  
+  const m = text.match(/เดือน\s*(\d{1,2})/);
+  if (m) {
+    return parseInt(m[1], 10);
+  }
+  
+  for (const month of months) {
+    if (text.includes(month.name)) return month.idx;
+  }
+  
+  return null;
+}
+
 function parseSummaryPeriod(text) {
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
   const year = now.getUTCFullYear();
@@ -283,5 +318,7 @@ module.exports = {
   isComparisonRequest,
   isGreeting,
   isHelpRequest,
+  isPdfRequest,
+  parsePdfMonth,
   parseSummaryPeriod,
 };
