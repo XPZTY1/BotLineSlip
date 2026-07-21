@@ -216,6 +216,23 @@ function isPdfRequest(text) {
 }
 
 /**
+ * ตรวจสอบว่าผู้ใช้ต้องการตั้งเป้าหมายการออม
+ */
+function isGoalSettingRequest(text) {
+  const words = ['ตั้งเป้าหมาย', 'ออมเงินซื้อ', 'เก็บเงินซื้อ', 'เป้าหมายออมเงิน', 'เป้าหมายการออม'];
+  // ควรระวังไม่ให้ไปปนกับ "ออมเงิน 200" เฉยๆ
+  return words.some((word) => text.toLowerCase().includes(word)) && (text.includes('บาท') || text.match(/\d+/));
+}
+
+/**
+ * ตรวจสอบว่าผู้ใช้ต้องการดูเป้าหมายการออม
+ */
+function isGoalProgressRequest(text) {
+  const words = ['ดูเป้าหมาย', 'ความคืบหน้าออมเงิน', 'เป้าหมายของฉัน', 'เป้าหมายทั้งหมด', 'ความคืบหน้าเป้าหมาย'];
+  return words.some((word) => text.toLowerCase().includes(word));
+}
+
+/**
  * ดึงเดือนจากข้อความสำหรับ PDF
  */
 function parsePdfMonth(text) {
@@ -318,6 +335,8 @@ module.exports = {
   isComparisonRequest,
   isGreeting,
   isHelpRequest,
+  isGoalSettingRequest,
+  isGoalProgressRequest,
   isPdfRequest,
   parsePdfMonth,
   parseSummaryPeriod,

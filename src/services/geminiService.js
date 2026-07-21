@@ -232,4 +232,35 @@ function fallbackParse(text) {
   };
 }
 
-module.exports = { parseExpenseMessage, parseSlipImage };
+/**
+ * วิเคราะห์ข้อความการตั้งเป้าหมายออมเงิน
+ */
+async function parseGoalSettingMessage(userMessage) {
+  try {
+    const prompt = `
+คุณคือผู้ช่วยวิเคราะห์การตั้งเป้าหมายการออมเงิน
+สกัดข้อมูลจากข้อความผู้ใช้เป็น JSON เท่านั้น โดยมีโครงสร้างดังนี้:
+{
+  "name": "ชื่อเป้าหมาย (เช่น โทรศัพท์, เที่ยวญี่ปุ่น, ไอแพด)",
+  "target_amount": จำนวนเงินเป้าหมาย (ตัวเลขเท่านั้น),
+  "duration_months": ระยะเวลาที่ต้องการออมเป็นเดือน (ตัวเลขเท่านั้น เช่น ถ้าบอก 1 ปี ให้ตอบ 12)
+}
+
+ข้อความ: "${userMessage}"
+JSON:
+`;
+    const result = await ai.models.generateContent({
+      model: config.gemini.model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: GENERATION_CONFIG,
+    });
+
+    const responseText = result.text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error('❌ Gemini Goal Parsing Error:', error.message);
+    return null;
+  }
+}
+
+module.exports = { parseExpenseMessage, parseSlipImage, parseGoalSettingMessage };

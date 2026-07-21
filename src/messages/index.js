@@ -1,7 +1,12 @@
+const { generateFlexComparison } = require('./flexComparison');
+const { generateGoalCreatedFlex, generateGoalsProgressFlex } = require('./flexGoal');
+
 module.exports = {
   ...require('./textReplies'),
   ...require('./flexTransaction'),
   ...require('./flexSummary'),
   ...require('./flexTransactionList'),
-  ...require('./flexComparison'),
+  generateFlexComparison,
+  generateGoalCreatedFlex,
+  generateGoalsProgressFlex,
 };

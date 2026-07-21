@@ -1,7 +1,8 @@
 const { config } = require('../config');
-const { parseExpenseMessage, parseSlipImage } = require('../services/geminiService');
+const { parseExpenseMessage, parseSlipImage, parseGoalSettingMessage } = require('../services/geminiService');
 const { appendTransaction, getAllTransactions, getTransactions } = require('../services/transactionService');
 const { compareMonths } = require('../services/comparisonService');
+const { createGoal, getGoals, addSavingsToGoal } = require('../services/goalService');
 const { generatePdfBuffer, uploadPdfToSupabase } = require('../services/pdfService');
 const { renderPdfHtml } = require('../web/pdfTemplate');
 const { categorizeByKeyword } = require('../constants/categories');
@@ -11,6 +12,8 @@ const {
   generateConfirmQuickReply,
   generateFlexSummary,
   generateFlexComparison,
+  generateGoalCreatedFlex,
+  generateGoalsProgressFlex,
   generateMissingFieldReply,
   generateTransactionFlex,
   generateTransactionsLinkFlex,
@@ -18,6 +21,8 @@ const {
   isAnalysisRequest,
   isBalanceRequest,
   isComparisonRequest,
+  isGoalSettingRequest,
+  isGoalProgressRequest,
   isGreeting,
   isHelpRequest,
   isPdfRequest,
@@ -54,6 +59,14 @@ async function handleTextMessage(userId, userMessage) {
     return buildComparisonReply(userId);
   }
 
+  if (isGoalSettingRequest(userMessage)) {
+    return buildGoalSettingReply(userId, userMessage);
+  }
+
+  if (isGoalProgressRequest(userMessage)) {
+    return buildGoalProgressReply(userId);
+  }
+
   if (isPdfRequest(userMessage)) {
     return buildPdfReply(userId, userMessage);
   }
@@ -76,6 +89,15 @@ async function handleTextMessage(userId, userMessage) {
     }
 
     const transactionData = toTransactionData(parsed);
+
+    if (transactionData.category === 'เงินออม' && userId) {
+      const goals = await getGoals(userId);
+      if (goals && goals.length > 0) {
+        setPending(userId, transactionData, 'awaiting_goal_selection');
+        return generateGoalSelectionQuickReply(goals, transactionData.amount);
+      }
+    }
+
     if (shouldAutoSaveTransaction(parsed, userMessage)) {
       return saveAndBuildReply(transactionData, userId);
     }
@@ -159,6 +181,24 @@ async function handlePendingConfirmation(userId, userMessage) {
     return buildPdfReplyWithMonth(userId, month);
   }
 
+  if (pendingEntry.mode === 'awaiting_goal_selection') {
+    clearPending(userId);
+    const { amount } = pendingEntry.transactionData;
+    
+    if (userMessage === 'skip_goal') {
+      return saveAndBuildReply(pendingEntry.transactionData, userId);
+    }
+    
+    const goalId = userMessage.trim();
+    const result = await addSavingsToGoal(goalId, amount);
+    if (!result.success) {
+      return saveAndBuildReply(pendingEntry.transactionData, userId);
+    }
+    
+    await appendTransaction(pendingEntry.transactionData, userId);
+    return `หยอดกระปุก ${amount} ฿ เข้าเป้าหมาย "${result.goal.name}" เรียบร้อยแล้วครับ! 🎯\nตอนนี้เก็บได้ ${result.goal.current_amount} / ${result.goal.target_amount} ฿`;
+  }
+
   const pendingData = pendingEntry.transactionData;
   const normalizedMessage = userMessage.toLowerCase().trim();
 
@@ -239,7 +279,6 @@ async function buildPdfReplyWithMonth(userId, month) {
   try {
     const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
     const year = now.getUTCFullYear();
-    // ถ้า month มากกว่าเดือนปัจจุบัน แสดงว่าเป็นของปีที่แล้ว
     const targetYear = month > now.getUTCMonth() + 1 ? year - 1 : year;
     const lastDay = new Date(targetYear, month, 0).getDate();
     
@@ -270,6 +309,52 @@ async function buildPdfReplyWithMonth(userId, month) {
     console.error('❌ PDF export error:', error);
     return 'ขออภัยครับ เกิดข้อผิดพลาดในการสร้าง PDF ลองใหม่อีกครั้งนะครับ 🙏';
   }
+}
+
+async function buildGoalSettingReply(userId, userMessage) {
+  const parsed = await parseGoalSettingMessage(userMessage);
+  if (!parsed || !parsed.name || !parsed.target_amount || !parsed.duration_months) {
+    return 'ไม่สามารถตั้งเป้าหมายได้ครับ ช่วยบอกใหม่ให้ชัดเจนขึ้นหน่อย เช่น "ออมเงินซื้อไอแพด 30,000 บาท ภายใน 10 เดือน"';
+  }
+  
+  const result = await createGoal(userId, parsed.name, parsed.target_amount, parsed.duration_months);
+  if (!result.success) return GENERAL_RESPONSES.error;
+  
+  return generateGoalCreatedFlex(result.goal);
+}
+
+async function buildGoalProgressReply(userId) {
+  const goals = await getGoals(userId);
+  if (!goals) return GENERAL_RESPONSES.error;
+  if (goals.length === 0) return 'คุณยังไม่มีเป้าหมายการออมเลยครับ ลองตั้งดูไหม? เช่น "ออมเงินซื้อโทรศัพท์ 20,000 บาท ภายใน 6 เดือน"';
+  
+  return generateGoalsProgressFlex(goals);
+}
+
+function generateGoalSelectionQuickReply(goals, amount) {
+  const items = goals.slice(0, 10).map(goal => ({
+    type: 'action',
+    action: {
+      type: 'message',
+      label: goal.name.substring(0, 20),
+      text: goal.id
+    }
+  }));
+  
+  items.push({
+    type: 'action',
+    action: {
+      type: 'message',
+      label: 'ไม่ระบุ',
+      text: 'skip_goal'
+    }
+  });
+
+  return {
+    type: 'text',
+    text: `ต้องการหยอดกระปุก ${amount} บาท เข้าเป้าหมายไหนครับ? 🎯`,
+    quickReply: { items }
+  };
 }
 
 async function saveAndBuildReply(transactionData, userId) {
