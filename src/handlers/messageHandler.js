@@ -2,7 +2,7 @@ const { config } = require('../config');
 const { parseExpenseMessage, parseSlipImage, parseGoalSettingMessage } = require('../services/geminiService');
 const { appendTransaction, getAllTransactions, getTransactions } = require('../services/transactionService');
 const { compareMonths } = require('../services/comparisonService');
-const { createGoal, getGoals, addSavingsToGoal } = require('../services/goalService');
+const { createGoal, getGoals, addSavingsToGoal, cancelGoal } = require('../services/goalService');
 const { generatePdfBuffer, uploadPdfToSupabase } = require('../services/pdfService');
 const { renderPdfHtml } = require('../web/pdfTemplate');
 const { categorizeByKeyword } = require('../constants/categories');
@@ -23,6 +23,7 @@ const {
   isComparisonRequest,
   isGoalSettingRequest,
   isGoalProgressRequest,
+  isGoalCancelRequest,
   isGreeting,
   isHelpRequest,
   isPdfRequest,
@@ -65,6 +66,15 @@ async function handleTextMessage(userId, userMessage) {
 
   if (isGoalProgressRequest(userMessage)) {
     return buildGoalProgressReply(userId);
+  }
+
+  if (isGoalCancelRequest(userMessage)) {
+    const goals = await getGoals(userId);
+    if (!goals || goals.length === 0) {
+      return 'คุณไม่มีเป้าหมายที่กำลังทำงานอยู่ครับ';
+    }
+    setPending(userId, {}, 'awaiting_goal_cancellation');
+    return generateGoalCancellationQuickReply(goals);
   }
 
   if (isPdfRequest(userMessage)) {
@@ -197,6 +207,21 @@ async function handlePendingConfirmation(userId, userMessage) {
     
     await appendTransaction(pendingEntry.transactionData, userId);
     return `หยอดกระปุก ${amount} ฿ เข้าเป้าหมาย "${result.goal.name}" เรียบร้อยแล้วครับ! 🎯\nตอนนี้เก็บได้ ${result.goal.current_amount} / ${result.goal.target_amount} ฿`;
+  }
+
+  if (pendingEntry.mode === 'awaiting_goal_cancellation') {
+    clearPending(userId);
+    if (userMessage === 'cancel_cancel') {
+      return 'โอเคครับ ไม่ยกเลิกเป้าหมายแล้ว';
+    }
+    
+    const goalId = userMessage.trim();
+    const result = await cancelGoal(goalId);
+    if (!result.success) {
+      return 'เกิดข้อผิดพลาดในการยกเลิกเป้าหมายครับ';
+    }
+    
+    return `ยกเลิกเป้าหมาย "${result.goal.name}" เรียบร้อยแล้วครับ ❌`;
   }
 
   const pendingData = pendingEntry.transactionData;
@@ -353,6 +378,32 @@ function generateGoalSelectionQuickReply(goals, amount) {
   return {
     type: 'text',
     text: `ต้องการหยอดกระปุก ${amount} บาท เข้าเป้าหมายไหนครับ? 🎯`,
+    quickReply: { items }
+  };
+}
+
+function generateGoalCancellationQuickReply(goals) {
+  const items = goals.slice(0, 10).map(goal => ({
+    type: 'action',
+    action: {
+      type: 'message',
+      label: goal.name.substring(0, 20),
+      text: goal.id
+    }
+  }));
+  
+  items.push({
+    type: 'action',
+    action: {
+      type: 'message',
+      label: 'ไม่ยกเลิกแล้ว',
+      text: 'cancel_cancel'
+    }
+  });
+
+  return {
+    type: 'text',
+    text: `คุณต้องการยกเลิกเป้าหมายไหนครับ? ❌\n(เงินที่เคยออมไปแล้วจะยังอยู่ในระบบรายจ่ายปกติ)`,
     quickReply: { items }
   };
 }

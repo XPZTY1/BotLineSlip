@@ -233,6 +233,14 @@ function isGoalProgressRequest(text) {
 }
 
 /**
+ * ตรวจสอบว่าผู้ใช้ต้องการยกเลิกเป้าหมาย
+ */
+function isGoalCancelRequest(text) {
+  const words = ['ยกเลิกเป้าหมาย', 'ลบเป้าหมาย', 'ยกเลิกออมเงิน'];
+  return words.some((word) => text.toLowerCase().includes(word));
+}
+
+/**
  * ดึงเดือนจากข้อความสำหรับ PDF
  */
 function parsePdfMonth(text) {
@@ -337,6 +345,7 @@ module.exports = {
   isHelpRequest,
   isGoalSettingRequest,
   isGoalProgressRequest,
+  isGoalCancelRequest,
   isPdfRequest,
   parsePdfMonth,
   parseSummaryPeriod,

@@ -74,9 +74,24 @@ async function addSavingsToGoal(goalId, amountToAdd) {
   return { success: true, goal: data[0] };
 }
 
+async function cancelGoal(goalId) {
+  const { data, error } = await supabase
+    .from('goals')
+    .update({ status: 'cancelled' })
+    .eq('id', goalId)
+    .select();
+
+  if (error) {
+    console.error('❌ Supabase cancel goal error:', error);
+    return { success: false, error: error.message };
+  }
+  return { success: true, goal: data[0] };
+}
+
 module.exports = {
   createGoal,
   getGoals,
   getGoalById,
   addSavingsToGoal,
+  cancelGoal,
 };
