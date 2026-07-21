@@ -1,18 +1,21 @@
 const { config } = require('../config');
 const { parseExpenseMessage, parseSlipImage } = require('../services/geminiService');
 const { appendTransaction, getAllTransactions, getTransactions } = require('../services/transactionService');
+const { compareMonths } = require('../services/comparisonService');
 const { categorizeByKeyword } = require('../constants/categories');
 const {
   GENERAL_RESPONSES,
   formatAmount,
   generateConfirmQuickReply,
   generateFlexSummary,
+  generateFlexComparison,
   generateMissingFieldReply,
   generateTransactionFlex,
   generateTransactionsLinkFlex,
   isAllTransactionsRequest,
   isAnalysisRequest,
   isBalanceRequest,
+  isComparisonRequest,
   isGreeting,
   isHelpRequest,
   parseSummaryPeriod,
@@ -41,6 +44,10 @@ async function handleTextMessage(userId, userMessage) {
 
   if (isAllTransactionsRequest(userMessage)) {
     return buildAllTransactionsReply(userId);
+  }
+
+  if (isComparisonRequest(userMessage)) {
+    return buildComparisonReply(userId);
   }
 
   if (isAnalysisRequest(userMessage)) {
@@ -184,6 +191,22 @@ async function buildAllTransactionsReply(userId) {
 
   const url = `${config.baseUrl}/transactions/${userId}`;
   return generateTransactionsLinkFlex(url);
+}
+
+async function buildComparisonReply(userId) {
+  try {
+    console.log(`📊 [comparison] userId: ${userId}`);
+    const data = await compareMonths(userId);
+    if (data === null) return GENERAL_RESPONSES.error;
+
+    const flex = generateFlexComparison(data);
+    if (!flex) return GENERAL_RESPONSES.noData;
+
+    return flex;
+  } catch (error) {
+    console.error('❌ Comparison error:', error);
+    return GENERAL_RESPONSES.error;
+  }
 }
 
 async function saveAndBuildReply(transactionData, userId) {

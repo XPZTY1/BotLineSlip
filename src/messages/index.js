@@ -3,4 +3,5 @@ module.exports = {
   ...require('./flexTransaction'),
   ...require('./flexSummary'),
   ...require('./flexTransactionList'),
+  ...require('./flexComparison'),
 };

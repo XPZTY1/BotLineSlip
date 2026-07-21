@@ -193,6 +193,20 @@ function isAllTransactionsRequest(text) {
   return words.some((word) => text.includes(word));
 }
 
+/**
+ * ตรวจสอบว่าผู้ใช้ต้องการเปรียบเทียบเดือนนี้กับเดือนก่อน
+ */
+function isComparisonRequest(text) {
+  const words = [
+    'เทียบเดือน',
+    'สรุปเทียบ',
+    'เปรียบเทียบ',
+    'เทียบ',
+    'compare',
+  ];
+  return words.some((word) => text.toLowerCase().includes(word));
+}
+
 function parseSummaryPeriod(text) {
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
   const year = now.getUTCFullYear();
@@ -266,6 +280,7 @@ module.exports = {
   isAllTransactionsRequest,
   isAnalysisRequest,
   isBalanceRequest,
+  isComparisonRequest,
   isGreeting,
   isHelpRequest,
   parseSummaryPeriod,
