@@ -46,14 +46,17 @@ function formatThaiDate(dateValue) {
 }
 
 /**
- * สร้าง HTML สำหรับแสดงเป้าหมายการออมใน Flex Summary
+ * สร้าง Flex components สำหรับแสดงเป้าหมายการออมใน Flex Summary
  * @param {Array} goals - Array of goal objects
  * @returns {Array} Flex components array
  */
 function makeGoalsSection(goals) {
   if (!goals || goals.length === 0) return [];
 
-  const goalComponents = goals.map((goal) => {
+  // จำกัดแสดงสูงสุด 3 เป้าหมาย เพื่อไม่ให้ Flex ใหญ่เกินไป
+  const displayGoals = goals.slice(0, 3);
+
+  const goalComponents = displayGoals.map((goal) => {
     const current = Number(goal.current_amount);
     const target = Number(goal.target_amount);
     const pct = target > 0 ? Math.min(100, Math.floor((current / target) * 100)) : 0;
@@ -71,7 +74,7 @@ function makeGoalsSection(goals) {
           type: 'box',
           layout: 'horizontal',
           contents: [
-            makeText(`🎯 ${goal.name}`, { flex: 4, weight: 'bold', size: 'sm', color: '#065F46' }),
+            makeText(`🎯 ${goal.name}`, { flex: 4, weight: 'bold', size: 'sm', color: '#065F46', maxLines: 1 }),
             makeText(`${pct}%`, { flex: 1, align: 'end', weight: 'bold', size: 'sm', color: '#10B981' }),
           ],
         },
@@ -85,7 +88,7 @@ function makeGoalsSection(goals) {
               layout: 'horizontal',
               contents: [
                 makeText(`${formatAmount(current)} / ${formatAmount(target)} ฿`, { flex: 3, size: 'xs', color: '#065F46', weight: 'bold' }),
-                makeText(remaining > 0 ? `เหลืออีก ${formatAmount(remaining)} ฿` : '🎉 บรรลุเป้าหมายแล้ว!', { flex: 3, align: 'end', size: 'xs', color: remaining > 0 ? '#6B7280' : '#10B981' }),
+                makeText(remaining > 0 ? `เหลือ ${formatAmount(remaining)} ฿` : '🎉 สำเร็จ!', { flex: 3, align: 'end', size: 'xs', color: remaining > 0 ? '#6B7280' : '#10B981' }),
               ],
             },
             {
@@ -106,16 +109,19 @@ function makeGoalsSection(goals) {
                 },
               ],
             },
-            makeText(`ออมเดือนละ ${formatAmount(goal.monthly_amount)} ฿ (${goal.duration_months} เดือน)`, { size: 'xs', color: '#6B7280', margin: 'xs' }),
+            makeText(`เดือนละ ${formatAmount(goal.monthly_amount)} ฿ (${goal.duration_months} ด.)`, { size: 'xs', color: '#6B7280', margin: 'xs' }),
           ],
         },
       ],
     };
   });
 
+  const moreText = goals.length > 3 ? makeText(`...และอีก ${goals.length - 3} เป้าหมาย`, { size: 'xs', color: '#94A3B8', margin: 'sm', align: 'end' }) : null;
+
   return [
     makeText('🎯 เป้าหมายการออม', { size: 'sm', color: '#0F172A', weight: 'bold', margin: 'lg' }),
     ...goalComponents,
+    ...(moreText ? [moreText] : []),
   ];
 }
 
@@ -173,7 +179,7 @@ function makeCategoryRows(categories, total) {
 function makeRecentRows(rows) {
   const recentRows = [...rows]
     .sort((a, b) => `${b.date}`.localeCompare(`${a.date}`))
-    .slice(0, 5);
+    .slice(0, 3);
 
   if (recentRows.length === 0) {
     return [makeText('ยังไม่มีรายการล่าสุด', { color: '#94A3B8' })];
@@ -238,52 +244,22 @@ function generateFlexSummary(rows, label, goals = null) {
   const totalIncome = sumAmount(incomeRows);
   const totalExpense = sumAmount(expenseRows);
   const net = totalIncome - totalExpense;
-  const topExpenseCategories = topCategories(expenseRows, 5);
+  // ลดจำนวนหมวดหมู่ที่แสดง เพื่อไม่ให้ Flex ใหญ่เกินไป
+  const topExpenseCategories = topCategories(expenseRows, 4);
   const topIncomeCategories = topCategories(incomeRows, 3);
+  // ลดจำนวนรายการล่าสุด
+  const recentRows = [...rows]
+    .sort((a, b) => `${b.date}`.localeCompare(`${a.date}`))
+    .slice(0, 3);
   const avgExpense = expenseRows.length > 0 ? totalExpense / expenseRows.length : 0;
   const netColor = net >= 0 ? '#059669' : '#DC2626';
   const netSign = net >= 0 ? '+' : '-';
   const insight = buildInsight({ net, totalIncome, totalExpense, expenseRows });
-
-  const bodyContents = [
-    {
-      type: 'box',
-      layout: 'horizontal',
-      spacing: 'sm',
-      contents: [
-        makeMetricCard('รายรับ', `${formatAmount(totalIncome)} ฿`, '#047857', '#ECFDF5'),
-        makeMetricCard('รายจ่าย', `${formatAmount(totalExpense)} ฿`, '#B91C1C', '#FEF2F2'),
-      ],
-    },
-    {
-      type: 'box',
-      layout: 'vertical',
-      backgroundColor: net >= 0 ? '#F0FDF4' : '#FFF1F2',
-      cornerRadius: '16px',
-      paddingAll: '14px',
-      margin: 'md',
-      contents: [
-        {
-          type: 'box',
-          layout: 'horizontal',
-          contents: [
-            makeText(net >= 0 ? 'คงเหลือสุทธิ' : 'ติดลบสุทธิ', { flex: 3, color: netColor, weight: 'bold' }),
-            makeText(`${netSign}${formatAmount(Math.abs(net))} ฿`, { flex: 3, color: netColor, weight: 'bold', align: 'end', size: 'lg' }),
-          ],
-        },
-        makeText(`เฉลี่ยรายจ่ายต่อรายการ ${formatAmount(avgExpense)} ฿`, { size: 'xs', color: '#64748B', margin: 'xs' }),
-      ],
-    },
-    makeSection('หมวดรายจ่ายสูงสุด', makeCategoryRows(topExpenseCategories, totalExpense)),
-    makeSection('แหล่งรายรับ', makeCategoryRows(topIncomeCategories, totalIncome)),
-    makeSection('รายการล่าสุด', makeRecentRows(rows)),
-    // เพิ่ม section เป้าหมายการออม (ถ้ามี)
-    ...makeGoalsSection(goals),
-  ];
+  const goalsSection = makeGoalsSection(goals);
 
   const bubble = {
     type: 'bubble',
-    size: 'mega',
+    size: 'kilo',
     header: {
       type: 'box',
       layout: 'vertical',
@@ -299,7 +275,41 @@ function generateFlexSummary(rows, label, goals = null) {
       layout: 'vertical',
       paddingAll: '16px',
       spacing: 'sm',
-      contents: bodyContents,
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            makeMetricCard('รายรับ', `${formatAmount(totalIncome)} ฿`, '#047857', '#ECFDF5'),
+            makeMetricCard('รายจ่าย', `${formatAmount(totalExpense)} ฿`, '#B91C1C', '#FEF2F2'),
+          ],
+        },
+        {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: net >= 0 ? '#F0FDF4' : '#FFF1F2',
+          cornerRadius: '16px',
+          paddingAll: '14px',
+          margin: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                makeText(net >= 0 ? 'คงเหลือสุทธิ' : 'ติดลบสุทธิ', { flex: 3, color: netColor, weight: 'bold' }),
+                makeText(`${netSign}${formatAmount(Math.abs(net))} ฿`, { flex: 3, color: netColor, weight: 'bold', align: 'end', size: 'lg' }),
+              ],
+            },
+            makeText(`เฉลี่ยรายจ่ายต่อรายการ ${formatAmount(avgExpense)} ฿`, { size: 'xs', color: '#64748B', margin: 'xs' }),
+          ],
+        },
+        makeSection('หมวดรายจ่ายสูงสุด', makeCategoryRows(topExpenseCategories, totalExpense)),
+        makeSection('แหล่งรายรับ', makeCategoryRows(topIncomeCategories, totalIncome)),
+        makeSection('รายการล่าสุด', makeRecentRows(recentRows)),
+        // เพิ่ม section เป้าหมายการออม (ถ้ามี)
+        ...goalsSection,
+      ],
     },
     footer: {
       type: 'box',
