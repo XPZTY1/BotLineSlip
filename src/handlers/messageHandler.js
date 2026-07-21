@@ -246,10 +246,13 @@ async function buildSummaryReply(userId, userMessage) {
     const { dateFrom, dateTo, label } = parseSummaryPeriod(userMessage);
     console.log(`📊 วิเคราะห์ ${label}: ${dateFrom} → ${dateTo}`);
 
-    const rows = await getTransactions(userId, dateFrom, dateTo);
+    const [rows, goals] = await Promise.all([
+      getTransactions(userId, dateFrom, dateTo),
+      getGoals(userId),
+    ]);
     if (rows === null) return GENERAL_RESPONSES.error;
 
-    return generateFlexSummary(rows, label) || GENERAL_RESPONSES.noData;
+    return generateFlexSummary(rows, label, goals) || GENERAL_RESPONSES.noData;
   } catch (error) {
     console.error('❌ Analysis error:', error);
     return GENERAL_RESPONSES.error;
@@ -258,10 +261,13 @@ async function buildSummaryReply(userId, userMessage) {
 
 async function buildBalanceReply(userId) {
   try {
-    const rows = await getAllTransactions(userId);
+    const [rows, goals] = await Promise.all([
+      getAllTransactions(userId),
+      getGoals(userId),
+    ]);
     if (rows === null) return GENERAL_RESPONSES.error;
 
-    return generateFlexSummary(rows, 'ทั้งหมด') || GENERAL_RESPONSES.noData;
+    return generateFlexSummary(rows, 'ทั้งหมด', goals) || GENERAL_RESPONSES.noData;
   } catch (error) {
     console.error('❌ Balance error:', error);
     return GENERAL_RESPONSES.error;

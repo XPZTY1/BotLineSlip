@@ -3,6 +3,7 @@ const line = require('@line/bot-sdk');
 const { config } = require('./config');
 const { handleEvent } = require('./services/lineService');
 const { getAllTransactions } = require('./services/transactionService');
+const { getGoals } = require('./services/goalService');
 const { renderTransactionsPage } = require('./web/transactionsPage');
 
 function createApp() {
@@ -31,13 +32,14 @@ function createApp() {
     try {
       const { userId } = req.params;
       const rows = await getAllTransactions(userId);
+      const goals = await getGoals(userId);
 
       if (rows === null) {
         return res.status(500).send('เกิดข้อผิดพลาดในการโหลดข้อมูล');
       }
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(renderTransactionsPage(rows));
+      return res.send(renderTransactionsPage(rows, goals));
     } catch (error) {
       console.error('❌ Transactions page error:', error);
       return res.status(500).send('เกิดข้อผิดพลาดในการโหลดข้อมูล');

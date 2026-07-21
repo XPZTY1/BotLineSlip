@@ -70,7 +70,38 @@ function renderDateGroup([date, rows]) {
     </div>`;
 }
 
-function renderTransactionsPage(rows) {
+function renderGoalsSection(goals) {
+  if (!goals || goals.length === 0) return '';
+
+  const goalsHtml = goals.map((goal) => {
+    const current = Number(goal.current_amount);
+    const target = Number(goal.target_amount);
+    const pct = Math.min(100, Math.floor((current / target) * 100));
+
+    return `
+      <div class="goal-card">
+        <div class="goal-header">
+          <span class="goal-name">🎯 ${escapeHtml(goal.name)}</span>
+          <span class="goal-pct">${pct}%</span>
+        </div>
+        <div class="goal-bar-bg">
+          <div class="goal-bar-fill" style="width: ${pct}%;"></div>
+        </div>
+        <div class="goal-footer">
+          <span>${formatAmount(current)} / ${formatAmount(target)} ฿</span>
+          <span>ออมเดือนละ ${formatAmount(goal.monthly_amount)} ฿ (${goal.duration_months} ด.)</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="goals-wrapper">
+      <div class="section-heading">🎯 เป้าหมายการออม</div>
+      ${goalsHtml}
+    </div>`;
+}
+
+function renderTransactionsPage(rows, goals) {
   const safeRows = rows || [];
   const totalIncome = safeRows
     .filter((row) => row.type === 'รายรับ')
@@ -160,6 +191,51 @@ function renderTransactionsPage(rows) {
     padding: 60px 20px;
     font-size: 14px;
   }
+  .goals-wrapper {
+    margin: 16px 12px 0;
+  }
+  .section-heading {
+    font-size: 14px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 10px;
+  }
+  .goal-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .goal-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .goal-pct {
+    color: #10B981;
+  }
+  .goal-bar-bg {
+    background: #E2E8F0;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .goal-bar-fill {
+    background: #10B981;
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+  .goal-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #64748B;
+  }
 </style>
 </head>
 <body>
@@ -180,6 +256,7 @@ function renderTransactionsPage(rows) {
       <span class="net-value ${netColor}">${netSign}${formatAmount(Math.abs(net))} ฿</span>
     </div>
   </div>
+  ${renderGoalsSection(goals)}
   <div class="list">
     ${listHtml}
   </div>
