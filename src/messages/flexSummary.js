@@ -102,10 +102,11 @@ function makeGoalsSection(goals) {
                 {
                   type: 'box',
                   layout: 'vertical',
-                  width: `${pct}%`,
+                  width: `${Math.max(1, pct)}%`,
                   height: '100%',
                   backgroundColor: '#10B981',
                   cornerRadius: '2px',
+                  contents: [{ type: 'filler' }],
                 },
               ],
             },

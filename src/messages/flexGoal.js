@@ -115,11 +115,11 @@ function generateGoalsProgressFlex(goals) {
                   {
                     type: 'box',
                     layout: 'vertical',
-                    width: `${progressPct}%`,
+                    width: `${Math.max(1, progressPct)}%`,
                     height: '100%',
                     backgroundColor: '#1DB446',
                     cornerRadius: '10px',
-                    contents: []
+                    contents: [{ type: 'filler' }]
                   }
                 ]
               }

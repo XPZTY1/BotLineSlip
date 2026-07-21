@@ -44,11 +44,8 @@ async function replyPayload(replyToken, payload) {
       messages: [message],
     });
   } catch (error) {
-    if (error.originalError && error.originalError.response) {
-      console.error('❌ LINE reply error:', JSON.stringify(error.originalError.response.data, null, 2));
-    } else {
-      console.error('❌ LINE reply error:', error.message);
-    }
+    const errorData = error.response?.data || error.body || error.details || error.originalError?.response?.data || error.message || error;
+    console.error('❌ LINE reply error:', typeof errorData === 'object' ? JSON.stringify(errorData, null, 2) : errorData);
     return null;
   }
 }
