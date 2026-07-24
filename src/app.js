@@ -6,6 +6,7 @@ const { getAllTransactions } = require('./services/transactionService');
 const { getGoals } = require('./services/goalService');
 const { renderTransactionsPage } = require('./web/transactionsPage');
 const { generateTransactionsCsv } = require('./utils/csvHelper');
+const { deleteTransactionById, updateTransaction } = require('./services/transactionService');
 
 function createApp() {
   const app = express();
@@ -15,6 +16,9 @@ function createApp() {
   const lineMiddleware = line.middleware({
     channelSecret: config.line.channelSecret,
   });
+
+  // ใช้ express.json() สำหรับ API routes (แต่ไม่ใช่ webhook)
+  app.use('/api', express.json());
 
   app.get('/', (req, res) => {
     res.json({
@@ -65,6 +69,35 @@ function createApp() {
     } catch (error) {
       console.error('❌ CSV export error:', error);
       return res.status(500).send('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+    }
+  });
+
+  app.delete('/api/transaction/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.query;
+      if (!userId) return res.status(400).json({ error: 'Missing userId' });
+      const result = await deleteTransactionById(id, userId);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('❌ Delete transaction API error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.patch('/api/transaction/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.query;
+      const updates = req.body;
+      if (!userId) return res.status(400).json({ error: 'Missing userId' });
+      const result = await updateTransaction(id, userId, updates);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('❌ Update transaction API error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 

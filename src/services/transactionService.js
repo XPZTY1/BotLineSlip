@@ -187,6 +187,46 @@ async function deleteLastTransaction(lineUserId) {
   }
 }
 
+async function deleteTransactionById(id, lineUserId) {
+  try {
+    if (!id || !lineUserId) return { success: false, error: 'ID and User ID are required' };
+    
+    const { data, error } = await supabase
+      .from(TABLE)
+      .delete()
+      .eq('id', id)
+      .eq('line_user_id', lineUserId)
+      .select();
+
+    if (error) return { success: false, error: error.message };
+    if (!data || data.length === 0) return { success: false, error: 'ไม่สามารถลบรายการได้' };
+
+    return { success: true, deleted: data[0] };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function updateTransaction(id, lineUserId, updates) {
+  try {
+    if (!id || !lineUserId) return { success: false, error: 'ID and User ID are required' };
+
+    const { data, error } = await supabase
+      .from(TABLE)
+      .update(updates)
+      .eq('id', id)
+      .eq('line_user_id', lineUserId)
+      .select();
+
+    if (error) return { success: false, error: error.message };
+    if (!data || data.length === 0) return { success: false, error: 'ไม่สามารถอัปเดตรายการได้' };
+
+    return { success: true, updated: data[0] };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 async function getTransactionsByTag(lineUserId, tag) {
   try {
     let query = supabase
@@ -260,10 +300,12 @@ async function testConnection() {
 module.exports = {
   appendTransaction,
   deleteLastTransaction,
+  deleteTransactionById,
   getAllActiveUserIds,
   getAllTransactions,
   getTransactions,
   getTransactionsByTag,
   registerActiveUser,
   testConnection,
+  updateTransaction,
 };

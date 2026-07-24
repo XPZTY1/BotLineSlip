@@ -209,7 +209,60 @@ function getThaiMonthLabel(month) {
   return months[month] || `เดือน ${month}`;
 }
 
+/**
+ * เปรียบเทียบสัปดาห์นี้กับสัปดาห์ก่อน
+ * @param {string|null} lineUserId
+ * @returns {Object|null} comparison data
+ */
+async function compareWeeks(lineUserId) {
+  const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const dayOfWeek = now.getUTCDay() || 7; // 1-7, 1=Monday
+  
+  // สัปดาห์นี้ (จันทร์ - วันนี้)
+  const thisMonday = new Date(now);
+  thisMonday.setUTCDate(now.getUTCDate() - dayOfWeek + 1);
+  
+  // สัปดาห์ที่แล้ว (จันทร์ - อาทิตย์)
+  const lastMonday = new Date(thisMonday);
+  lastMonday.setUTCDate(thisMonday.getUTCDate() - 7);
+  const lastSunday = new Date(thisMonday);
+  lastSunday.setUTCDate(thisMonday.getUTCDate() - 1);
+  
+  const thisWeekFrom = fmt(thisMonday.getUTCFullYear(), thisMonday.getUTCMonth() + 1, thisMonday.getUTCDate());
+  const thisWeekTo = fmt(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate());
+  
+  const lastWeekFrom = fmt(lastMonday.getUTCFullYear(), lastMonday.getUTCMonth() + 1, lastMonday.getUTCDate());
+  const lastWeekTo = fmt(lastSunday.getUTCFullYear(), lastSunday.getUTCMonth() + 1, lastSunday.getUTCDate());
+
+  const [thisWeekRows, lastWeekRows] = await Promise.all([
+    getMonthlyData(lineUserId, thisWeekFrom, thisWeekTo),
+    getMonthlyData(lineUserId, lastWeekFrom, lastWeekTo),
+  ]);
+
+  if (thisWeekRows === null || lastWeekRows === null) return null;
+
+  const thisExpense = thisWeekRows.filter(r => r.type === 'รายจ่าย');
+  const thisIncome = thisWeekRows.filter(r => r.type === 'รายรับ');
+  const lastExpense = lastWeekRows.filter(r => r.type === 'รายจ่าย');
+  const lastIncome = lastWeekRows.filter(r => r.type === 'รายรับ');
+
+  return {
+    thisWeek: {
+      totalExpense: sumAmount(thisExpense),
+      totalIncome: sumAmount(thisIncome),
+      byCategory: groupByCategory(thisExpense),
+    },
+    lastWeek: {
+      totalExpense: sumAmount(lastExpense),
+      totalIncome: sumAmount(lastIncome),
+      byCategory: groupByCategory(lastExpense),
+    },
+    label: 'สัปดาห์นี้ vs สัปดาห์ก่อน'
+  };
+}
+
 module.exports = {
   compareMonths,
+  compareWeeks,
   calcPercentChange,
 };

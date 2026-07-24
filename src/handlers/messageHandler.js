@@ -1,7 +1,7 @@
 const { config } = require('../config');
 const { parseExpenseMessage, parseSlipImage, parseGoalSettingMessage } = require('../services/geminiService');
 const { appendTransaction, deleteLastTransaction, getAllTransactions, getTransactions, getTransactionsByTag, registerActiveUser } = require('../services/transactionService');
-const { compareMonths } = require('../services/comparisonService');
+const { compareMonths, compareWeeks } = require('../services/comparisonService');
 const { createGoal, getGoals, addSavingsToGoal, cancelGoal } = require('../services/goalService');
 const { checkBudgetWarning, getBudgets, setBudget } = require('../services/budgetService');
 const { buildCoachInsights } = require('../services/coachService');
@@ -38,6 +38,7 @@ const {
   isHelpRequest,
   isPdfRequest,
   isTagSummaryRequest,
+  isWeeklyRequest,
   parsePdfMonth,
   parseSummaryPeriod,
 } = require('../messages');
@@ -126,6 +127,10 @@ async function handleTextMessage(userId, userMessage) {
 
   if (isComparisonRequest(userMessage)) {
     return buildComparisonReply(userId);
+  }
+
+  if (isWeeklyRequest(userMessage)) {
+    return buildWeeklyComparisonReply(userId);
   }
 
   if (isGoalSettingRequest(userMessage)) {
@@ -396,6 +401,19 @@ async function buildComparisonReply(userId) {
     return flex;
   } catch (error) {
     console.error('❌ Comparison error:', error);
+    return GENERAL_RESPONSES.error;
+  }
+}
+
+async function buildWeeklyComparisonReply(userId) {
+  try {
+    console.log(`📊 [weeklyComparison] userId: ${userId}`);
+    const data = await compareWeeks(userId);
+    if (data === null) return GENERAL_RESPONSES.error;
+
+    return generateWeeklyComparisonFlex(data.thisWeek, data.lastWeek);
+  } catch (error) {
+    console.error('❌ Weekly Comparison error:', error);
     return GENERAL_RESPONSES.error;
   }
 }

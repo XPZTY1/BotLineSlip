@@ -215,6 +215,11 @@ function isPdfRequest(text) {
   return words.some((word) => text.toLowerCase().includes(word));
 }
 
+function isWeeklyRequest(text) {
+  const words = ['สรุปอาทิตย์', 'สัปดาห์นี้', 'weekly', 'เทียบอาทิตย์', 'สรุปสัปดาห์'];
+  return words.some((word) => text.toLowerCase().includes(word));
+}
+
 /**
  * ตรวจสอบว่าผู้ใช้ต้องการตั้งเป้าหมายการออม
  */
@@ -382,6 +387,7 @@ module.exports = {
   isHelpRequest,
   isPdfRequest,
   isTagSummaryRequest,
+  isWeeklyRequest,
   parsePdfMonth,
   parseSummaryPeriod,
 };

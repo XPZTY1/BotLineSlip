@@ -42,14 +42,22 @@ function renderRow(row) {
   const isIncome = row.type === 'รายรับ';
   const sign = isIncome ? '+' : '-';
   const colorClass = isIncome ? 'income' : 'expense';
+  
+  const rowData = escapeHtml(JSON.stringify(row));
 
   return `
-    <div class="row">
+    <div class="row" data-id="${row.id}">
       <div class="row-main">
         <div class="row-item">${escapeHtml(row.item)}</div>
         <div class="row-category">${escapeHtml(row.category)}</div>
       </div>
-      <div class="row-amount ${colorClass}">${sign}${formatAmount(row.amount)} ฿</div>
+      <div class="row-actions">
+        <div class="row-amount ${colorClass}">${sign}${formatAmount(row.amount)} ฿</div>
+        <div class="action-btns">
+          <button class="edit-btn" onclick='openEditModal(${rowData})'>✏️</button>
+          <button class="delete-btn" onclick="deleteTx('${row.id}')">🗑️</button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -237,6 +245,21 @@ function renderTransactionsPage(rows, goals) {
     font-size: 11px;
     color: #64748B;
   }
+  .row-actions { display: flex; align-items: center; gap: 8px; }
+  .action-btns { display: flex; gap: 4px; }
+  .action-btns button { background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px; border-radius: 4px; }
+  .action-btns button:hover { background: #E2E8F0; }
+  
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+  .modal { background: #1E293B; color: #fff; padding: 20px; border-radius: 16px; width: 90%; max-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  .modal h2 { font-size: 18px; margin-bottom: 16px; color: #F8FAFC; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 13px; margin-bottom: 4px; color: #94A3B8; }
+  .form-group input, .form-group select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #334155; background: #0F172A; color: #fff; font-size: 14px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .btn-cancel { background: #334155; color: #fff; }
+  .btn-save { background: #3B82F6; color: #fff; }
 </style>
 </head>
 <body>
@@ -261,6 +284,75 @@ function renderTransactionsPage(rows, goals) {
   <div class="list">
     ${listHtml}
   </div>
+
+  <div id="editModal" class="modal-overlay">
+    <div class="modal">
+      <h2>✏️ แก้ไขรายการ</h2>
+      <input type="hidden" id="editId">
+      <div class="form-group">
+        <label>ชื่อรายการ</label>
+        <input type="text" id="editItem">
+      </div>
+      <div class="form-group">
+        <label>จำนวนเงิน (บาท)</label>
+        <input type="number" id="editAmount" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>หมวดหมู่</label>
+        <input type="text" id="editCategory">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeEditModal()">ยกเลิก</button>
+        <button class="btn btn-save" onclick="saveEdit()">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('userId') || window.location.pathname.split('/').pop();
+
+    async function deleteTx(id) {
+      if (!confirm('ยืนยันการลบรายการนี้?')) return;
+      try {
+        const res = await fetch(\`/api/transaction/\${id}?userId=\${userId}\`, { method: 'DELETE' });
+        if (res.ok) window.location.reload();
+        else alert('ลบไม่สำเร็จ');
+      } catch (err) {
+        alert('เกิดข้อผิดพลาด');
+      }
+    }
+
+    function openEditModal(row) {
+      document.getElementById('editId').value = row.id;
+      document.getElementById('editItem').value = row.item;
+      document.getElementById('editAmount').value = row.amount;
+      document.getElementById('editCategory').value = row.category;
+      document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').style.display = 'none';
+    }
+
+    async function saveEdit() {
+      const id = document.getElementById('editId').value;
+      const item = document.getElementById('editItem').value;
+      const amount = document.getElementById('editAmount').value;
+      const category = document.getElementById('editCategory').value;
+      try {
+        const res = await fetch(\`/api/transaction/\${id}?userId=\${userId}\`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item, amount: Number(amount), category })
+        });
+        if (res.ok) window.location.reload();
+        else alert('แก้ไขไม่สำเร็จ');
+      } catch (err) {
+        alert('เกิดข้อผิดพลาด');
+      }
+    }
+  </script>
 </body>
 </html>`;
 }
