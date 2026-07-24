@@ -159,16 +159,27 @@ async function deleteLastTransaction(lineUserId) {
     }
 
     const lastRow = data[0];
-    const { error: deleteError } = await supabase
+    console.log(`🗑️ [deleteLastTransaction] กำลังลบ id=${lastRow.id}, item="${lastRow.item}", userId=${lineUserId}`);
+
+    const { data: deletedData, error: deleteError } = await supabase
       .from(TABLE)
       .delete()
-      .eq('id', lastRow.id);
+      .eq('id', lastRow.id)
+      .eq('line_user_id', lineUserId)
+      .select();
 
     if (deleteError) {
       console.error('❌ Supabase Delete Error:', deleteError.message);
       return { success: false, error: deleteError.message };
     }
 
+    // ถ้า deletedData เป็น array ว่าง = ลบไม่สำเร็จ (ถูก RLS block หรือ row ไม่มีแล้ว)
+    if (!deletedData || deletedData.length === 0) {
+      console.error('❌ Delete ไม่สำเร็จ — อาจถูก RLS block หรือไม่พบ row ที่ตรงเงื่อนไข');
+      return { success: false, error: 'ลบไม่สำเร็จ กรุณาตรวจสอบสิทธิ์การลบใน Supabase (RLS Policy)' };
+    }
+
+    console.log(`✅ ลบสำเร็จ: id=${lastRow.id}, item="${lastRow.item}"`);
     return { success: true, deleted: lastRow };
   } catch (error) {
     console.error('❌ Delete Last Transaction Error:', error.message);
