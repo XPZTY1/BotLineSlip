@@ -28,10 +28,19 @@ function toTransactionRow(data, lineUserId = null) {
 
 async function appendTransaction(data, lineUserId = null) {
   try {
-    const { data: inserted, error } = await supabase
+    const row = toTransactionRow(data, lineUserId);
+    let { data: inserted, error } = await supabase
       .from(TABLE)
-      .insert([toTransactionRow(data, lineUserId)])
+      .insert([row])
       .select();
+
+    // Fallback: หากยังไม่ได้เพิ่มคอลัมน์ tags ใน Supabase ให้ลบ tags ออกแล้วลองบันทึกซ้ำ
+    if (error && error.message && error.message.includes('tags')) {
+      delete row.tags;
+      const res = await supabase.from(TABLE).insert([row]).select();
+      inserted = res.data;
+      error = res.error;
+    }
 
     if (error) {
       console.error('❌ Supabase Insert Error:', error.message);
@@ -59,7 +68,24 @@ async function getTransactions(lineUserId, dateFrom, dateTo) {
       query = query.eq('line_user_id', lineUserId);
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+
+    // Fallback: หากยังไม่ได้เพิ่มคอลัมน์ tags ใน Supabase
+    if (error && error.message && error.message.includes('tags')) {
+      let fallbackQuery = supabase
+        .from(TABLE)
+        .select('id, item, amount, category, type, date')
+        .gte('date', dateFrom)
+        .lte('date', dateTo)
+        .order('date', { ascending: true });
+
+      if (lineUserId) {
+        fallbackQuery = fallbackQuery.eq('line_user_id', lineUserId);
+      }
+      const res = await fallbackQuery;
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       console.error('❌ Supabase Select Error:', error.message);
@@ -85,7 +111,23 @@ async function getAllTransactions(lineUserId) {
       query = query.eq('line_user_id', lineUserId);
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+
+    // Fallback: หากยังไม่ได้เพิ่มคอลัมน์ tags ใน Supabase
+    if (error && error.message && error.message.includes('tags')) {
+      let fallbackQuery = supabase
+        .from(TABLE)
+        .select('id, item, amount, category, type, date')
+        .order('date', { ascending: false })
+        .limit(MAX_ROWS);
+
+      if (lineUserId) {
+        fallbackQuery = fallbackQuery.eq('line_user_id', lineUserId);
+      }
+      const res = await fallbackQuery;
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       console.error('❌ Supabase Select Error:', error.message);
@@ -153,12 +195,12 @@ async function getTransactionsByTag(lineUserId, tag) {
     const { data, error } = await query;
     if (error) {
       console.error('❌ Supabase Tag Select Error:', error.message);
-      return null;
+      return [];
     }
-    return data;
+    return data || [];
   } catch (error) {
     console.error('❌ Supabase Error:', error.message);
-    return null;
+    return [];
   }
 }
 

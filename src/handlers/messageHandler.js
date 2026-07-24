@@ -50,6 +50,17 @@ const CONFIRM_NO = ['ไม่', 'no', 'ไม่ใช่', 'ไม่ถูก
 async function handleTextMessage(userId, userMessage) {
   if (userId) registerActiveUser(userId);
 
+  // ตรวจสอบคำสั่งลบก่อน เพื่อให้ปุ่มลบทำงานได้แม้มี pending state ค้างอยู่
+  if (isDeleteLastRequest(userMessage)) {
+    if (userId) clearPending(userId);
+    const result = await deleteLastTransaction(userId);
+    if (!result.success) {
+      return `❌ ไม่สามารถลบรายการได้: ${result.error}`;
+    }
+    const { item, amount, category } = result.deleted;
+    return `🗑️ ลบรายการล่าสุดเรียบร้อยแล้วครับ!\n• รายการ: ${item}\n• หมวด: ${category}\n• จำนวน: ${formatAmount(amount)} ฿`;
+  }
+
   const pendingReply = await handlePendingConfirmation(userId, userMessage);
   if (pendingReply) return pendingReply;
 
@@ -59,15 +70,6 @@ async function handleTextMessage(userId, userMessage) {
 
   if (isHelpRequest(userMessage)) {
     return GENERAL_RESPONSES.help;
-  }
-
-  if (isDeleteLastRequest(userMessage)) {
-    const result = await deleteLastTransaction(userId);
-    if (!result.success) {
-      return `❌ ไม่สามารถลบรายการได้: ${result.error}`;
-    }
-    const { item, amount, category } = result.deleted;
-    return `🗑️ ลบรายการล่าสุดเรียบร้อยแล้วครับ!\n• รายการ: ${item}\n• หมวด: ${category}\n• จำนวน: ${formatAmount(amount)} ฿`;
   }
 
   if (isBudgetSettingRequest(userMessage)) {
