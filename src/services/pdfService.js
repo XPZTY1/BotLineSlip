@@ -1,9 +1,9 @@
 /**
  * PDF Service
- * ใช้ html-pdf-node เพื่อแปลง HTML เป็น PDF แล้วอัปโหลดขึ้น Supabase Storage
+ * ใช้ puppeteer เพื่อแปลง HTML เป็น PDF แล้วอัปโหลดขึ้น Supabase Storage
  */
 const puppeteer = require('puppeteer');
-const { supabase } = require('./transactionService');
+const { supabase } = require('./supabaseClient');
 
 /**
  * แปลง HTML เป็น PDF Buffer

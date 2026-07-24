@@ -2,7 +2,7 @@
  * Comparison Service
  * เปรียบเทียบรายรับ/รายจ่ายระหว่างเดือนนี้กับเดือนก่อน
  */
-const { supabase } = require('./transactionService');
+const { supabase } = require('./supabaseClient');
 const { config } = require('../config');
 
 const TABLE = config.supabase.table;

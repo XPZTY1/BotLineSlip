@@ -2,11 +2,13 @@
  * Transaction Service
  * เชื่อมต่อ อ่าน และเขียนข้อมูลธุรกรรมลง Supabase (PostgreSQL)
  */
-const { createClient } = require('@supabase/supabase-js');
+const { supabase } = require('./supabaseClient');
 const { config } = require('../config');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
 const TABLE = config.supabase.table;
+
+// จำกัดจำนวน rows สูงสุดที่ดึงในคราวเดียว เพื่อป้องกัน query ขนาดใหญ่
+const MAX_ROWS = 500;
 
 function toTransactionRow(data, lineUserId = null) {
   const { item, amount, category, type, date } = data;
@@ -72,7 +74,8 @@ async function getAllTransactions(lineUserId) {
     let query = supabase
       .from(TABLE)
       .select('item, amount, category, type, date')
-      .order('date', { ascending: true });
+      .order('date', { ascending: false }) // ล่าสุดก่อน
+      .limit(MAX_ROWS);
 
     if (lineUserId) {
       query = query.eq('line_user_id', lineUserId);
@@ -85,7 +88,8 @@ async function getAllTransactions(lineUserId) {
       return null;
     }
 
-    return data;
+    // คืนค่าเรียงจากเก่าไปใหม่สำหรับ render
+    return data.reverse();
   } catch (error) {
     console.error('❌ Supabase Error:', error.message);
     return null;
@@ -111,6 +115,5 @@ module.exports = {
   appendTransaction,
   getAllTransactions,
   getTransactions,
-  supabase,
   testConnection,
 };

@@ -21,6 +21,6 @@
     "@supabase/supabase-js": "^2.104.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "html-pdf-node": "^1.0.8"
+    "puppeteer": "^23.0.0"
   }
 }
