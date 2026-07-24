@@ -15,6 +15,7 @@ const {
   generateBudgetProgressFlex,
   generateCoachFlex,
   generateConfirmQuickReply,
+  generateHelpQuickReply,
   generateFlexSummary,
   generateFlexComparison,
   generateGoalCreatedFlex,
@@ -90,7 +91,7 @@ async function handleTextMessage(userId, userMessage) {
   }
 
   if (isHelpRequest(userMessage)) {
-    return GENERAL_RESPONSES.help;
+    return generateHelpQuickReply();
   }
 
   if (isBudgetSettingRequest(userMessage)) {

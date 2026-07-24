@@ -158,8 +158,47 @@ function isGreeting(text) {
 }
 
 function isHelpRequest(text) {
-  const helpWords = ['ช่วย', 'help', 'วิธีใช้', 'สอน', 'ใช้ยังไง', 'ทำยังไง'];
+  const helpWords = ['ช่วยเหลือ', 'ช่วย', 'help', 'เมนู', 'วิธีใช้', 'ทำอะไรได้บ้าง'];
   return helpWords.some((word) => text.toLowerCase().includes(word));
+}
+
+function generateHelpQuickReply() {
+  return {
+    type: 'text',
+    text: 'สวัสดีครับ! เลือกบริการที่คุณต้องการจากปุ่มเมนูลัดด้านล่างได้เลยครับ 👇',
+    quickReply: {
+      items: [
+        {
+          type: 'action',
+          action: { type: 'message', label: '🧠 โค้ชการเงิน', text: 'ขอคำแนะนำการเงิน' },
+        },
+        {
+          type: 'action',
+          action: { type: 'message', label: '🎯 เป้าหมายออมเงิน', text: 'ดูเป้าหมาย' },
+        },
+        {
+          type: 'action',
+          action: { type: 'message', label: '💳 เช็คงบประมาณ', text: 'ดูงบ' },
+        },
+        {
+          type: 'action',
+          action: { type: 'message', label: '📈 สรุปสัปดาห์นี้', text: 'สรุปสัปดาห์' },
+        },
+        {
+          type: 'action',
+          action: { type: 'message', label: '📊 เทียบรายเดือน', text: 'เปรียบเทียบ' },
+        },
+        {
+          type: 'action',
+          action: { type: 'message', label: '📋 รายการทั้งหมด', text: 'รายการทั้งหมด' },
+        },
+        {
+          type: 'action',
+          action: { type: 'message', label: '📄 ดาวน์โหลด PDF', text: 'ออก pdf' },
+        },
+      ],
+    },
+  };
 }
 
 function isAnalysisRequest(text) {
@@ -370,6 +409,7 @@ module.exports = {
   formatAmount,
   getCategoryComment,
   generateConfirmQuickReply,
+  generateHelpQuickReply,
   generateMissingFieldReply,
   isAllTransactionsRequest,
   isAnalysisRequest,
