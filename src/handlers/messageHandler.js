@@ -50,15 +50,35 @@ const CONFIRM_NO = ['ไม่', 'no', 'ไม่ใช่', 'ไม่ถูก
 async function handleTextMessage(userId, userMessage) {
   if (userId) registerActiveUser(userId);
 
-  // ตรวจสอบคำสั่งลบก่อน เพื่อให้ปุ่มลบทำงานได้แม้มี pending state ค้างอยู่
+  // ตรวจสอบคำสั่งขอระบบยืนยันก่อนลบรายการ
   if (isDeleteLastRequest(userMessage)) {
-    if (userId) clearPending(userId);
-    const result = await deleteLastTransaction(userId);
-    if (!result.success) {
-      return `❌ ไม่สามารถลบรายการได้: ${result.error}`;
+    if (userId) {
+      setPending(userId, {}, 'awaiting_delete_confirmation');
     }
-    const { item, amount, category } = result.deleted;
-    return `🗑️ ลบรายการล่าสุดเรียบร้อยแล้วครับ!\n• รายการ: ${item}\n• หมวด: ${category}\n• จำนวน: ${formatAmount(amount)} ฿`;
+    return {
+      type: 'text',
+      text: '⚠️ คุณต้องการลบรายการล่าสุดใช่หรือไม่?',
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🗑️ ยืนยันลบ',
+              text: 'ยืนยันลบรายการ',
+            },
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '❌ ยกเลิก',
+              text: 'ยกเลิกการลบ',
+            },
+          },
+        ],
+      },
+    };
   }
 
   const pendingReply = await handlePendingConfirmation(userId, userMessage);
@@ -280,6 +300,20 @@ async function handlePendingConfirmation(userId, userMessage) {
     }
     
     return `ยกเลิกเป้าหมาย "${result.goal.name}" เรียบร้อยแล้วครับ ❌`;
+  }
+
+  if (pendingEntry.mode === 'awaiting_delete_confirmation') {
+    clearPending(userId);
+    const normalized = userMessage.trim().toLowerCase();
+    if (normalized === 'ยืนยันลบรายการ' || normalized === 'ยืนยันลบ' || CONFIRM_YES.includes(normalized)) {
+      const result = await deleteLastTransaction(userId);
+      if (!result.success) {
+        return `❌ ไม่สามารถลบรายการได้: ${result.error}`;
+      }
+      const { item, amount, category } = result.deleted;
+      return `🗑️ ลบรายการล่าสุดเรียบร้อยแล้วครับ!\n• รายการ: ${item}\n• หมวด: ${category}\n• จำนวน: ${formatAmount(amount)} ฿`;
+    }
+    return '👌 ยกเลิกการลบเรียบร้อยแล้วครับ ไม่มีการลบรายการใดๆ';
   }
 
   const pendingData = pendingEntry.transactionData;
