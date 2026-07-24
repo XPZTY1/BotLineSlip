@@ -50,7 +50,10 @@ const CONFIRM_NO = ['ไม่', 'no', 'ไม่ใช่', 'ไม่ถูก
 async function handleTextMessage(userId, userMessage) {
   if (userId) registerActiveUser(userId);
 
-  // ตรวจสอบคำสั่งขอระบบยืนยันก่อนลบรายการ
+  const pendingReply = await handlePendingConfirmation(userId, userMessage);
+  if (pendingReply) return pendingReply;
+
+  // ตรวจสอบคำสั่งขอระบบยืนยันก่อนลบรายการ (จะทำงานเมื่อไม่มี pending อยู่)
   if (isDeleteLastRequest(userMessage)) {
     if (userId) {
       setPending(userId, {}, 'awaiting_delete_confirmation');
@@ -80,9 +83,6 @@ async function handleTextMessage(userId, userMessage) {
       },
     };
   }
-
-  const pendingReply = await handlePendingConfirmation(userId, userMessage);
-  if (pendingReply) return pendingReply;
 
   if (isGreeting(userMessage)) {
     return GENERAL_RESPONSES.greeting;
