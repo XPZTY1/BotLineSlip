@@ -252,6 +252,12 @@ async function handlePendingConfirmation(userId, userMessage) {
   if (!pendingEntry) return null;
 
   if (pendingEntry.mode === 'awaiting_item') {
+    // ป้องกัน action text จากปุ่ม Quick Reply มาบันทึกเป็น item
+    const RESERVED_ACTIONS = ['ยืนยันลบรายการ', 'ยกเลิกการลบ', 'cancel_cancel', 'skip_goal'];
+    if (RESERVED_ACTIONS.includes(userMessage.trim())) {
+      clearPending(userId);
+      return '👌 ยกเลิกการกรอกรายการแล้วครับ';
+    }
     clearPending(userId);
     const item = userMessage.trim();
     const { amount, type, date } = pendingEntry.transactionData;
@@ -261,9 +267,14 @@ async function handlePendingConfirmation(userId, userMessage) {
   }
 
   if (pendingEntry.mode === 'awaiting_pdf_month') {
+    const CANCEL_WORDS = ['ยกเลิก', 'cancel', 'ไม่เอา', 'ยกเลิกการลบ'];
+    if (CANCEL_WORDS.some(w => userMessage.toLowerCase().trim() === w)) {
+      clearPending(userId);
+      return '👌 ยกเลิกการสร้าง PDF แล้วครับ';
+    }
     const month = parsePdfMonth(userMessage);
     if (!month) {
-      return 'ยังไม่เข้าใจว่าเดือนไหนครับ ลองพิมพ์อีกที (เช่น "กรกฎา", "เดือน 7", "เดือนนี้")';
+      return 'ยังไม่เข้าใจว่าเดือนไหนครับ ลองพิมพ์อีกที (เช่น "กรกฎา", "เดือน 7", "เดือนนี้")\nหรือพิมพ์ "ยกเลิก" เพื่อออกจากคำสั่งนี้ได้ครับ';
     }
     clearPending(userId);
     return buildPdfReplyWithMonth(userId, month);
