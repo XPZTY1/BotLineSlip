@@ -189,11 +189,14 @@ function sanitizeSlipResult(parsed) {
     ? String(rawNote).trim()
     : null;
 
+  const bank = parsed.bank ? String(parsed.bank).trim() : null;
+  const autoCategory = parsed.auto_category ? String(parsed.auto_category).trim() : null;
+
   const confidence = typeof parsed.confidence === 'number' && parsed.confidence >= 0 && parsed.confidence <= 1
     ? parsed.confidence
     : 0.7;
 
-  return { amount, date, type, note, confidence };
+  return { amount, date, type, note, bank, autoCategory, confidence };
 }
 
 /**
@@ -263,4 +266,21 @@ JSON:
   }
 }
 
-module.exports = { parseExpenseMessage, parseSlipImage, parseGoalSettingMessage };
+async function generateCoachAnalysis(summaryText, transactionDetails) {
+  try {
+    const { buildCoachPrompt } = require('../constants/prompts');
+    const prompt = buildCoachPrompt(summaryText, transactionDetails);
+    const result = await ai.models.generateContent({
+      model: config.gemini.model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: GENERATION_CONFIG,
+    });
+    const responseText = result.text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error('❌ Gemini Coach Analysis Error:', error.message);
+    return null;
+  }
+}
+
+module.exports = { parseExpenseMessage, parseSlipImage, parseGoalSettingMessage, generateCoachAnalysis };

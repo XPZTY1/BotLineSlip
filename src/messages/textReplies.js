@@ -240,6 +240,35 @@ function isGoalCancelRequest(text) {
   return words.some((word) => text.toLowerCase().includes(word));
 }
 
+function isDeleteLastRequest(text) {
+  const words = ['ลบรายการล่าสุด', 'ยกเลิกรายการล่าสุด', 'ลบรายการ', 'ลบอันล่าสุด', 'ยกเลิกอันล่าสุด'];
+  return words.some((w) => text.toLowerCase().trim() === w || text.toLowerCase().includes(w));
+}
+
+function isBudgetSettingRequest(text) {
+  const lower = text.toLowerCase();
+  return (lower.includes('ตั้งงบ') || lower.includes('กำหนดงบ')) && (lower.includes('บาท') || lower.match(/\d+/));
+}
+
+function isBudgetCheckRequest(text) {
+  const words = ['ดูงบ', 'ดูงบประมาณ', 'เช็คงบ', 'งบประมาณ'];
+  return words.some((w) => text.toLowerCase().includes(w));
+}
+
+function isCoachRequest(text) {
+  const words = ['วิเคราะห์พฤติกรรม', 'โค้ชการเงิน', 'ขอคำแนะนำการเงิน', 'โค้ช', 'แนะนำการเงิน'];
+  return words.some((w) => text.toLowerCase().includes(w));
+}
+
+function isTagSummaryRequest(text) {
+  return text.trim().startsWith('#') || text.includes('ดูแท็ก') || (text.includes('สรุป') && text.includes('#'));
+}
+
+function isCsvRequest(text) {
+  const words = ['ขอ csv', 'โหลด csv', 'ดาวน์โหลด csv', 'ขอ excel', 'โหลด excel', 'export csv'];
+  return words.some((w) => text.toLowerCase().includes(w));
+}
+
 /**
  * ดึงเดือนจากข้อความสำหรับ PDF
  */
@@ -340,13 +369,19 @@ module.exports = {
   isAllTransactionsRequest,
   isAnalysisRequest,
   isBalanceRequest,
+  isBudgetCheckRequest,
+  isBudgetSettingRequest,
+  isCoachRequest,
   isComparisonRequest,
+  isCsvRequest,
+  isDeleteLastRequest,
+  isGoalCancelRequest,
+  isGoalProgressRequest,
+  isGoalSettingRequest,
   isGreeting,
   isHelpRequest,
-  isGoalSettingRequest,
-  isGoalProgressRequest,
-  isGoalCancelRequest,
   isPdfRequest,
+  isTagSummaryRequest,
   parsePdfMonth,
   parseSummaryPeriod,
 };

@@ -5,6 +5,7 @@
 const { createApp } = require('./app');
 const { config, validateConfig } = require('./config');
 const { testConnection } = require('./services/transactionService');
+const { initNotificationScheduler } = require('./services/notificationService');
 
 validateConfig();
 
@@ -30,6 +31,9 @@ async function startServer() {
       console.log('║   🗄️  DB: Supabase                       ║');
       console.log('╚══════════════════════════════════════════╝');
       console.log('');
+
+      // เริ่มการทำงานของ Notification Scheduler
+      initNotificationScheduler();
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

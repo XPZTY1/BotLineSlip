@@ -22,6 +22,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "html-pdf-node": "^1.0.8",
+    "node-cron": "^4.6.0",
     "puppeteer": "^10.4.0"
   }
 }

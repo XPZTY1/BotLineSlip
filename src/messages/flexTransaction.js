@@ -149,6 +149,25 @@ function generateTransactionFlex(data) {
           },
         ],
       },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '10px',
+        backgroundColor: '#F8FAFC',
+        contents: [
+          {
+            type: 'button',
+            style: 'secondary',
+            height: 'sm',
+            color: '#EF4444',
+            action: {
+              type: 'message',
+              label: '🗑️ ลบรายการนี้',
+              text: 'ลบรายการล่าสุด',
+            },
+          },
+        ],
+      },
     },
   };
 }

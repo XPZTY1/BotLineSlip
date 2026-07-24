@@ -5,6 +5,7 @@ const { handleEvent } = require('./services/lineService');
 const { getAllTransactions } = require('./services/transactionService');
 const { getGoals } = require('./services/goalService');
 const { renderTransactionsPage } = require('./web/transactionsPage');
+const { generateTransactionsCsv } = require('./utils/csvHelper');
 
 function createApp() {
   const app = express();
@@ -43,6 +44,27 @@ function createApp() {
     } catch (error) {
       console.error('❌ Transactions page error:', error);
       return res.status(500).send('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    }
+  });
+
+  app.get('/export/csv/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const rows = await getAllTransactions(userId);
+
+      if (rows === null) {
+        return res.status(500).send('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+      }
+
+      const csvContent = generateTransactionsCsv(rows);
+      const filename = `transactions_${userId}_${Date.now()}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(csvContent);
+    } catch (error) {
+      console.error('❌ CSV export error:', error);
+      return res.status(500).send('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
     }
   });
 
