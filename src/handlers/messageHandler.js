@@ -19,6 +19,7 @@ const {
   generateFlexSummary,
   generateFlexComparison,
   generateGoalCreatedFlex,
+  generateWeeklyComparisonFlex,
   generateGoalsProgressFlex,
   generateMissingFieldReply,
   generateTransactionFlex,
